@@ -1,12 +1,16 @@
 #!/bin/bash
 
 # --- CONFIGURATION ---
+# This is what the Shortcut sees when it checks for updates
 SWIFT_FILE="$HOME/Documents/soft_restart_pro.swift"
-LOCAL_VER="1.3"
 
 cat > "$SWIFT_FILE" << 'SWIFT_EOF'
 import Cocoa
 import Foundation
+
+// --- VERSION DATA ---
+// Shortcut looks for this line specifically
+let LOCAL_VER = "1.4" 
 
 struct ProcessItem {
     let pid: String
@@ -22,7 +26,6 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
     var filteredProcesses: [ProcessItem] = []
     let essentials = ["/Applications/Stats.app", "/Applications/boringNotch.app"]
 
-    // UI Elements
     let tabView = NSTabView()
     let tableView = NSTableView()
     let searchField = NSSearchField()
@@ -49,39 +52,31 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
         let visualEffect = NSVisualEffectView(frame: w.contentView!.bounds)
         visualEffect.blendingMode = .behindWindow
         visualEffect.state = .active
-        visualEffect.material = .sidebar // Gives that nice modern dark blur
+        visualEffect.material = .sidebar
         visualEffect.autoresizingMask = [.width, .height]
         w.contentView?.addSubview(visualEffect)
 
-        // --- Tabs ---
         tabView.translatesAutoresizingMaskIntoConstraints = false
         visualEffect.addSubview(tabView)
 
-        // Quick Tab
         let mainTab = NSTabViewItem(identifier: "main")
         mainTab.label = "Quick Actions"
         let mainView = NSView()
-        
         modeSegment.frame = NSRect(x: 20, y: 340, width: 380, height: 30)
         modeSegment.selectedSegment = 0
         mainView.addSubview(modeSegment)
-        
         reopenCheck.frame = NSRect(x: 25, y: 300, width: 200, height: 20)
         reopenCheck.state = .on
         mainView.addSubview(reopenCheck)
-        
         mainTab.view = mainView
 
-        // Advanced Tab
         let advTab = NSTabViewItem(identifier: "adv")
         advTab.label = "Process Picker"
         let advView = NSView()
-        
         searchField.frame = NSRect(x: 20, y: 345, width: 370, height: 24)
         searchField.placeholderString = "Filter running apps..."
         searchField.delegate = self
         advView.addSubview(searchField)
-
         let scroll = NSScrollView(frame: NSRect(x: 20, y: 20, width: 370, height: 315))
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
@@ -93,11 +88,9 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
         tableView.dataSource = self; tableView.delegate = self
         scroll.documentView = tableView
         advView.addSubview(scroll)
-        
         advTab.view = advView
         tabView.addTabViewItem(mainTab); tabView.addTabViewItem(advTab)
 
-        // --- Console View ---
         let consoleScroll = NSScrollView(frame: NSRect(x: 20, y: 80, width: 380, height: 100))
         console.isEditable = false
         console.backgroundColor = NSColor.black.withAlphaComponent(0.3)
@@ -106,7 +99,13 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
         consoleScroll.documentView = console
         visualEffect.addSubview(consoleScroll)
 
-        // Execute Button
+        // Version Label in UI
+        let vLbl = NSTextField(labelWithString: "v\(LOCAL_VER)")
+        vLbl.frame = NSRect(x: 20, y: 50, width: 100, height: 20)
+        vLbl.font = .systemFont(ofSize: 10)
+        vLbl.textColor = .tertiaryLabelColor
+        visualEffect.addSubview(vLbl)
+
         let execBtn = NSButton(title: "RUN SYSTEM RESTART", target: self, action: #selector(execute))
         execBtn.translatesAutoresizingMaskIntoConstraints = false
         execBtn.bezelStyle = .rounded
@@ -125,7 +124,7 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
 
         self.win = w
         refreshProcs()
-        log("System Ready. Version 1.1")
+        log("System Ready. v\(LOCAL_VER)")
     }
 
     func refreshProcs() {
@@ -153,37 +152,21 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
     @objc func execute() {
         let mode = modeSegment.selectedSegment
         let reopen = reopenCheck.state == .on
-        
         log("Executing mode: \(mode)...")
-        
         DispatchQueue.global(qos: .userInitiated).async {
-            // Kill checked items
             for p in self.allProcesses where p.isSelected { 
                 self.log("Killing \(p.name)...")
                 shell("kill -9 \(p.pid)") 
             }
-            
-            if mode == 0 || mode == 2 { 
-                self.log("Restarting UI Shell...")
-                shell("killall Dock Finder SystemUIServer") 
-            }
-            if mode == 1 || mode == 2 { 
-                self.log("Nuking all user services...")
-                shell("killall -u $(whoami) -m '.'") 
-            }
-            
+            if mode == 0 || mode == 2 { shell("killall Dock Finder SystemUIServer") }
+            if mode == 1 || mode == 2 { shell("killall -u $(whoami) -m '.'") }
             if reopen {
                 for appPath in self.essentials {
-                    if FileManager.default.fileExists(atPath: appPath) {
-                        self.log("Relaunching \(URL(fileURLWithPath: appPath).lastPathComponent)...")
-                        shell("open \(appPath)")
-                    }
+                    if FileManager.default.fileExists(atPath: appPath) { shell("open \(appPath)") }
                 }
             }
             self.log("Done!")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                self.win?.close(); NSApp.terminate(nil)
-            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { self.win?.close(); NSApp.terminate(nil) }
         }
     }
 
@@ -218,4 +201,5 @@ func shell(_ args: String) {
 ProController().run()
 SWIFT_EOF
 
+# Finally, execute the generated file
 swift "$SWIFT_FILE"
