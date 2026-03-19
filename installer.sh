@@ -1,7 +1,15 @@
-SWIFT_FILE="$HOME/Documents/soft_restart_pro.swift"
-rm -f "$SWIFT_FILE"
+#!/bin/bash
 
-cat > "$SWIFT_FILE" << 'SWIFT_EOF'
+# --- CONFIGURATION ---
+# This is used by the UI to check if it's out of date
+REMOTE_VER_URL="https://raw.githubusercontent.com/EmilyMCjava/soft-restart-hub/main/version.txt"
+LOCAL_VER="1.1"
+SWIFT_FILE="$HOME/Documents/soft_restart_pro.swift"
+
+# Check for the remote version number to pass into Swift
+REMOTE_VER=$(curl -s "$REMOTE_VER_URL")
+
+cat > "$SWIFT_FILE" << SWIFT_EOF
 import Cocoa
 import Foundation
 
@@ -46,7 +54,6 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
         visualEffect.autoresizingMask = [.width, .height]
         w.contentView?.addSubview(visualEffect)
 
-        // Tab View Construction
         tabView.translatesAutoresizingMaskIntoConstraints = false
         visualEffect.addSubview(tabView)
 
@@ -66,6 +73,15 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
         helpBtn.frame = NSRect(x: 165, y: 280, width: 22, height: 22)
         mainView.addSubview(helpBtn)
         
+        // Update Label (Only shows if GitHub version is higher)
+        if "$REMOTE_VER" > "$LOCAL_VER" {
+            let upLbl = NSTextField(labelWithString: "⚠️ Update Available in Menu")
+            upLbl.frame = NSRect(x: 20, y: 250, width: 360, height: 20)
+            upLbl.textColor = .systemYellow
+            upLbl.font = .systemFont(ofSize: 11, weight: .bold)
+            mainView.addSubview(upLbl)
+        }
+        
         mainTab.view = mainView
 
         // --- ADVANCED TAB ---
@@ -83,6 +99,7 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
         advView.addSubview(simBox)
 
         searchField.frame = NSRect(x: 15, y: 255, width: 370, height: 22)
+        searchField.placeholderString = "Search processes..."
         searchField.delegate = self
         advView.addSubview(searchField)
 
@@ -101,27 +118,24 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
         advTab.view = advView
         tabView.addTabViewItem(mainTab); tabView.addTabViewItem(advTab)
 
-        // Footer Elements
+        // Footer
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
         statusLabel.font = .systemFont(ofSize: 11); statusLabel.textColor = .secondaryLabelColor
         visualEffect.addSubview(statusLabel)
 
-        let execBtn = NSButton(title: "Execute Sequence", target: self, action: #selector(execute))
+        let execBtn = NSButton(title: "Execute", target: self, action: #selector(execute))
         execBtn.translatesAutoresizingMaskIntoConstraints = false
         execBtn.bezelStyle = .rounded; execBtn.keyEquivalent = "\r"
         visualEffect.addSubview(execBtn)
 
-        // Constraints for TabView and Footer
         NSLayoutConstraint.activate([
             tabView.topAnchor.constraint(equalTo: visualEffect.topAnchor, constant: 40),
             tabView.leadingAnchor.constraint(equalTo: visualEffect.leadingAnchor, constant: 5),
             tabView.trailingAnchor.constraint(equalTo: visualEffect.trailingAnchor, constant: -5),
             tabView.bottomAnchor.constraint(equalTo: execBtn.topAnchor, constant: -10),
-            
             execBtn.bottomAnchor.constraint(equalTo: visualEffect.bottomAnchor, constant: -20),
             execBtn.trailingAnchor.constraint(equalTo: visualEffect.trailingAnchor, constant: -20),
-            execBtn.widthAnchor.constraint(equalToConstant: 140),
-            
+            execBtn.widthAnchor.constraint(equalToConstant: 120),
             statusLabel.centerYAnchor.constraint(equalTo: execBtn.centerYAnchor),
             statusLabel.leadingAnchor.constraint(equalTo: visualEffect.leadingAnchor, constant: 20)
         ])
@@ -139,11 +153,8 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
         
         DispatchQueue.main.async {
             self.reopenCheck.isEnabled = anyFound
-            // Force visual "greying out"
-            self.reopenCheck.contentFilters = anyFound ? [] : [CIFilter(name: "CIColorControls", parameters: ["inputSaturation": 0])!]
             self.reopenCheck.alphaValue = anyFound ? 1.0 : 0.5
             if !anyFound { self.reopenCheck.state = .off }
-            self.statusLabel.stringValue = anyFound ? "System Ready" : "Essentials Hidden"
         }
     }
 
@@ -213,26 +224,4 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
     }
 
     @objc func rowChecked(_ sender: NSButton) {
-        let pid = filteredProcesses[sender.tag].pid
-        if let idx = allProcesses.firstIndex(where: { $0.pid == pid }) {
-            allProcesses[idx].isSelected = (sender.state == .on)
-            filteredProcesses[sender.tag].isSelected = (sender.state == .on)
-        }
-    }
-
-    @objc func modeChanged() {}
-    func run() {
-        app.setActivationPolicy(.regular); setupUI()
-        win?.makeKeyAndOrderFront(nil); app.activate(ignoringOtherApps: true); app.run()
-    }
-}
-
-func shell(_ args: String) {
-    let t = Process(); t.launchPath = "/bin/zsh"; t.arguments = ["-c", args]
-    try? t.run(); t.waitUntilExit()
-}
-
-ProController().run()
-SWIFT_EOF
-
-swift "$SWIFT_FILE"
+        let pid =
