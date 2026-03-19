@@ -2,7 +2,7 @@
 
 # --- CONFIGURATION ---
 SWIFT_FILE="$HOME/Documents/soft_restart_pro.swift"
-LOCAL_VER="1.2"
+LOCAL_VER="1.3"
 
 cat > "$SWIFT_FILE" << 'SWIFT_EOF'
 import Cocoa
