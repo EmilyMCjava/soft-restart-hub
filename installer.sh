@@ -284,6 +284,12 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
         app.setActivationPolicy(.regular); setupUI()
         win?.makeKeyAndOrderFront(nil); app.activate(ignoringOtherApps: true); app.run()
     }
+
+    // This forces the script to stop when you hit the red close button
+    func windowWillClose(_ notification: Notification) {
+        log("Window closing... Terminating.")
+        NSApp.terminate(nil)
+    }
 }
 
 func shell(_ args: String) {
