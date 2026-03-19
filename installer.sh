@@ -8,7 +8,7 @@ SWIFT_FILE="$HOME/Documents/soft_restart_pro.swift"
 # Check for the remote version number to pass into Swift
 REMOTE_VER=$(curl -s "$REMOTE_VER_URL")
 
-cat > "$SWIFT_FILE" << SWIFT_EOF
+cat > "$SWIFT_FILE" << 'SWIFT_EOF'
 import Cocoa
 import Foundation
 
