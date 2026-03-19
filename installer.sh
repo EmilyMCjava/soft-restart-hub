@@ -10,7 +10,7 @@ import Foundation
 
 // --- VERSION DATA ---
 // Shortcut looks for this line specifically
-let LOCAL_VER = "1.5" 
+let LOCAL_VER = "1.6" 
 
 struct ProcessItem {
     let pid: String
