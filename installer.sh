@@ -224,4 +224,27 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
     }
 
     @objc func rowChecked(_ sender: NSButton) {
-        let pid =
+        let pid = filteredProcesses[sender.tag].pid
+        if let idx = allProcesses.firstIndex(where: { $0.pid == pid }) {
+            allProcesses[idx].isSelected = (sender.state == .on)
+            filteredProcesses[sender.tag].isSelected = (sender.state == .on)
+        }
+    }
+
+    @objc func modeChanged() {}
+    func run() {
+        app.setActivationPolicy(.regular); setupUI()
+        win?.makeKeyAndOrderFront(nil); app.activate(ignoringOtherApps: true); app.run()
+    }
+}
+
+func shell(_ args: String) {
+    let t = Process(); t.launchPath = "/bin/zsh"; t.arguments = ["-c", args]
+    try? t.run(); t.waitUntilExit()
+}
+
+ProController().run()
+SWIFT_EOF
+
+# Execute the newly written file
+swift "$SWIFT_FILE"
