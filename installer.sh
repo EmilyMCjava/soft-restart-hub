@@ -5,9 +5,11 @@ REMOTE_VER_URL="https://raw.githubusercontent.com/EmilyMCjava/soft-restart-hub/m
 LOCAL_VER="1.1"
 SWIFT_FILE="$HOME/Documents/soft_restart_pro.swift"
 
-# Check for the remote version number to pass into Swift
+# Check for the remote version number
 REMOTE_VER=$(curl -s "$REMOTE_VER_URL")
 
+# --- THE SWIFT GENERATOR ---
+# Note the quotes around 'SWIFT_EOF' - this is the fix for your errors!
 cat > "$SWIFT_FILE" << 'SWIFT_EOF'
 import Cocoa
 import Foundation
@@ -68,14 +70,6 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
         helpBtn.bezelStyle = .circular
         helpBtn.frame = NSRect(x: 165, y: 280, width: 22, height: 22)
         mainView.addSubview(helpBtn)
-        
-        if "$REMOTE_VER" > "$LOCAL_VER" {
-            let upLbl = NSTextField(labelWithString: "⚠️ Update Available in Menu")
-            upLbl.frame = NSRect(x: 20, y: 250, width: 360, height: 20)
-            upLbl.textColor = .systemYellow
-            upLbl.font = .systemFont(ofSize: 11, weight: .bold)
-            mainView.addSubview(upLbl)
-        }
         
         mainTab.view = mainView
 
@@ -174,19 +168,19 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
         task.standardOutput = pipe; try? task.run(); task.waitUntilExit()
         let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
         allProcesses = output.components(separatedBy: "\n").compactMap { line in
-            let p = line.trimmingCharacters(in: .whitespaces).components(separatedBy: " ").filter { !\$0.isEmpty }
+            let p = line.trimmingCharacters(in: .whitespaces).components(separatedBy: " ").filter { !$0.isEmpty }
             guard p.count >= 2 else { return nil }
             let name = URL(fileURLWithPath: p[1]).lastPathComponent
             if name.count < 3 || name.contains("soft_restart") { return nil }
             return ProcessItem(pid: p[0], name: name)
-        }.sorted { \$0.name.lowercased() < \$1.name.lowercased() }
+        }.sorted { $0.name.lowercased() < $1.name.lowercased() }
         filteredProcesses = allProcesses
         tableView.reloadData()
     }
 
     func controlTextDidChange(_ obj: Notification) {
         let query = searchField.stringValue.lowercased()
-        filteredProcesses = query.isEmpty ? allProcesses : allProcesses.filter { \$0.name.lowercased().contains(query) }
+        filteredProcesses = query.isEmpty ? allProcesses : allProcesses.filter { $0.name.lowercased().contains(query) }
         tableView.reloadData()
     }
 
@@ -196,7 +190,7 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
         let sStats = simNoStats, sNotch = simNoNotch
         
         DispatchQueue.global(qos: .userInitiated).async {
-            for p in self.allProcesses where p.isSelected { shell("kill -9 \\(p.pid)") }
+            for p in self.allProcesses where p.isSelected { shell("kill -9 \(p.pid)") }
             if mode == 0 || mode == 2 { shell("killall Dock Finder SystemUIServer") }
             if mode == 1 || mode == 2 { shell("killall -u $(whoami) -m '.'") }
             if reopen {
@@ -210,7 +204,7 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
     func numberOfRows(in tableView: NSTableView) -> Int { return filteredProcesses.count }
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let item = filteredProcesses[row]
-        let btn = NSButton(checkboxWithTitle: "\\(item.name) (\\(item.pid))", target: self, action: #selector(rowChecked))
+        let btn = NSButton(checkboxWithTitle: "\(item.name) (\(item.pid))", target: self, action: #selector(rowChecked))
         btn.tag = row; btn.state = item.isSelected ? .on : .off
         btn.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         return btn
@@ -218,7 +212,7 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
 
     @objc func rowChecked(_ sender: NSButton) {
         let pid = filteredProcesses[sender.tag].pid
-        if let idx = allProcesses.firstIndex(where: { \$0.pid == pid }) {
+        if let idx = allProcesses.firstIndex(where: { $0.pid == pid }) {
             allProcesses[idx].isSelected = (sender.state == .on)
             filteredProcesses[sender.tag].isSelected = (sender.state == .on)
         }
@@ -239,5 +233,5 @@ func shell(_ args: String) {
 ProController().run()
 SWIFT_EOF
 
-# Run the final script
+# Finally, execute the generated file
 swift "$SWIFT_FILE"
