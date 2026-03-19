@@ -1,15 +1,9 @@
 #!/bin/bash
 
 # --- CONFIGURATION ---
-REMOTE_VER_URL="https://raw.githubusercontent.com/EmilyMCjava/soft-restart-hub/main/version.txt"
-LOCAL_VER="1.1"
 SWIFT_FILE="$HOME/Documents/soft_restart_pro.swift"
+LOCAL_VER="1.2"
 
-# Check for the remote version number
-REMOTE_VER=$(curl -s "$REMOTE_VER_URL")
-
-# --- THE SWIFT GENERATOR ---
-# Note the quotes around 'SWIFT_EOF' - this is the fix for your errors!
 cat > "$SWIFT_FILE" << 'SWIFT_EOF'
 import Cocoa
 import Foundation
@@ -27,71 +21,68 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
     var allProcesses: [ProcessItem] = []
     var filteredProcesses: [ProcessItem] = []
     let essentials = ["/Applications/Stats.app", "/Applications/boringNotch.app"]
-    
-    var simNoStats = false
-    var simNoNotch = false
 
+    // UI Elements
     let tabView = NSTabView()
     let tableView = NSTableView()
     let searchField = NSSearchField()
-    let statusLabel = NSTextField(labelWithString: "Ready")
-    let modeSegment = NSSegmentedControl(labels: ["Windows", "Services", "Full Nuke"], trackingMode: .selectOne, target: nil, action: #selector(modeChanged))
-    let reopenCheck = NSButton(checkboxWithTitle: "Reopen Essentials", target: nil, action: nil)
+    let console = NSTextView()
+    let modeSegment = NSSegmentedControl(labels: ["🪟 Windows", "⚙️ Services", "☢️ Nuke"], trackingMode: .selectOne, target: nil, action: nil)
+    let reopenCheck = NSButton(checkboxWithTitle: "🔄 Reopen Essentials", target: nil, action: nil)
+
+    func log(_ text: String) {
+        DispatchQueue.main.async {
+            self.console.string += "> \(text)\n"
+            self.console.scrollToEndOfDocument(nil)
+        }
+    }
 
     func setupUI() {
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 500),
-                         styleMask: [.titled, .closable, .fullSizeContentView],
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 550),
+                         styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
                          backing: .buffered, defer: false)
         w.center()
+        w.title = "Soft Restart Pro"
         w.titlebarAppearsTransparent = true
-        w.appearance = NSAppearance(named: .vibrantDark)
+        w.isMovableByWindowBackground = true
         
         let visualEffect = NSVisualEffectView(frame: w.contentView!.bounds)
         visualEffect.blendingMode = .behindWindow
         visualEffect.state = .active
-        visualEffect.material = .underWindowBackground
+        visualEffect.material = .sidebar // Gives that nice modern dark blur
         visualEffect.autoresizingMask = [.width, .height]
         w.contentView?.addSubview(visualEffect)
 
+        // --- Tabs ---
         tabView.translatesAutoresizingMaskIntoConstraints = false
         visualEffect.addSubview(tabView)
 
+        // Quick Tab
         let mainTab = NSTabViewItem(identifier: "main")
-        mainTab.label = "Quick"
+        mainTab.label = "Quick Actions"
         let mainView = NSView()
         
-        modeSegment.frame = NSRect(x: 20, y: 320, width: 360, height: 24)
+        modeSegment.frame = NSRect(x: 20, y: 340, width: 380, height: 30)
+        modeSegment.selectedSegment = 0
         mainView.addSubview(modeSegment)
         
-        reopenCheck.frame = NSRect(x: 20, y: 280, width: 140, height: 20)
+        reopenCheck.frame = NSRect(x: 25, y: 300, width: 200, height: 20)
+        reopenCheck.state = .on
         mainView.addSubview(reopenCheck)
-        
-        let helpBtn = NSButton(title: "?", target: self, action: #selector(showHelp))
-        helpBtn.bezelStyle = .circular
-        helpBtn.frame = NSRect(x: 165, y: 280, width: 22, height: 22)
-        mainView.addSubview(helpBtn)
         
         mainTab.view = mainView
 
+        // Advanced Tab
         let advTab = NSTabViewItem(identifier: "adv")
-        advTab.label = "Advanced"
+        advTab.label = "Process Picker"
         let advView = NSView()
         
-        let simBox = NSBox(frame: NSRect(x: 15, y: 290, width: 370, height: 70))
-        simBox.title = "Developer Simulation"
-        let s1 = NSButton(checkboxWithTitle: "Simulate Stats Missing", target: self, action: #selector(toggleSim))
-        let s2 = NSButton(checkboxWithTitle: "Simulate Notch Missing", target: self, action: #selector(toggleSim))
-        s1.frame = NSRect(x: 10, y: 30, width: 200, height: 20)
-        s2.frame = NSRect(x: 10, y: 10, width: 200, height: 20)
-        simBox.contentView?.addSubview(s1); simBox.contentView?.addSubview(s2)
-        advView.addSubview(simBox)
-
-        searchField.frame = NSRect(x: 15, y: 255, width: 370, height: 22)
-        searchField.placeholderString = "Search processes..."
+        searchField.frame = NSRect(x: 20, y: 345, width: 370, height: 24)
+        searchField.placeholderString = "Filter running apps..."
         searchField.delegate = self
         advView.addSubview(searchField)
 
-        let scroll = NSScrollView(frame: NSRect(x: 15, y: 10, width: 370, height: 235))
+        let scroll = NSScrollView(frame: NSRect(x: 20, y: 20, width: 370, height: 315))
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
         tableView.headerView = nil
@@ -106,60 +97,35 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
         advTab.view = advView
         tabView.addTabViewItem(mainTab); tabView.addTabViewItem(advTab)
 
-        statusLabel.translatesAutoresizingMaskIntoConstraints = false
-        statusLabel.font = .systemFont(ofSize: 11); statusLabel.textColor = .secondaryLabelColor
-        visualEffect.addSubview(statusLabel)
+        // --- Console View ---
+        let consoleScroll = NSScrollView(frame: NSRect(x: 20, y: 80, width: 380, height: 100))
+        console.isEditable = false
+        console.backgroundColor = NSColor.black.withAlphaComponent(0.3)
+        console.textColor = .systemGreen
+        console.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
+        consoleScroll.documentView = console
+        visualEffect.addSubview(consoleScroll)
 
-        let execBtn = NSButton(title: "Execute", target: self, action: #selector(execute))
+        // Execute Button
+        let execBtn = NSButton(title: "RUN SYSTEM RESTART", target: self, action: #selector(execute))
         execBtn.translatesAutoresizingMaskIntoConstraints = false
-        execBtn.bezelStyle = .rounded; execBtn.keyEquivalent = "\r"
+        execBtn.bezelStyle = .rounded
+        execBtn.contentTintColor = .systemBlue
         visualEffect.addSubview(execBtn)
 
         NSLayoutConstraint.activate([
-            tabView.topAnchor.constraint(equalTo: visualEffect.topAnchor, constant: 40),
-            tabView.leadingAnchor.constraint(equalTo: visualEffect.leadingAnchor, constant: 5),
-            tabView.trailingAnchor.constraint(equalTo: visualEffect.trailingAnchor, constant: -5),
-            tabView.bottomAnchor.constraint(equalTo: execBtn.topAnchor, constant: -10),
+            tabView.topAnchor.constraint(equalTo: visualEffect.topAnchor, constant: 50),
+            tabView.leadingAnchor.constraint(equalTo: visualEffect.leadingAnchor, constant: 10),
+            tabView.trailingAnchor.constraint(equalTo: visualEffect.trailingAnchor, constant: -10),
+            tabView.bottomAnchor.constraint(equalTo: consoleScroll.topAnchor, constant: -10),
             execBtn.bottomAnchor.constraint(equalTo: visualEffect.bottomAnchor, constant: -20),
-            execBtn.trailingAnchor.constraint(equalTo: visualEffect.trailingAnchor, constant: -20),
-            execBtn.widthAnchor.constraint(equalToConstant: 120),
-            statusLabel.centerYAnchor.constraint(equalTo: execBtn.centerYAnchor),
-            statusLabel.leadingAnchor.constraint(equalTo: visualEffect.leadingAnchor, constant: 20)
+            execBtn.centerXAnchor.constraint(equalTo: visualEffect.centerXAnchor),
+            execBtn.widthAnchor.constraint(equalToConstant: 200)
         ])
 
         self.win = w
-        updateEssentialState()
         refreshProcs()
-    }
-
-    func updateEssentialState() {
-        let fm = FileManager.default
-        let statsExist = fm.fileExists(atPath: essentials[0]) && !simNoStats
-        let notchExist = fm.fileExists(atPath: essentials[1]) && !simNoNotch
-        let anyFound = statsExist || notchExist
-        
-        DispatchQueue.main.async {
-            self.reopenCheck.isEnabled = anyFound
-            self.reopenCheck.alphaValue = anyFound ? 1.0 : 0.5
-            if !anyFound { self.reopenCheck.state = .off }
-        }
-    }
-
-    @objc func toggleSim(_ sender: NSButton) {
-        if sender.title.contains("Stats") { simNoStats = (sender.state == .on) }
-        else { simNoNotch = (sender.state == .on) }
-        updateEssentialState()
-    }
-
-    @objc func showHelp(_ sender: NSButton) {
-        let p = NSPopover(); p.behavior = .transient
-        let vc = NSViewController()
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 250, height: 110))
-        let txt = NSTextView(frame: NSRect(x: 10, y: 10, width: 230, height: 90))
-        txt.string = "REOPEN ESSENTIALS:\n\nWhen enabled, the script will relaunch Stats and boringNotch after the cleanup. This option greys out if the apps are missing from /Applications."
-        txt.isEditable = false; txt.backgroundColor = .clear; txt.font = .systemFont(ofSize: 11)
-        container.addSubview(txt); vc.view = container; p.contentViewController = vc
-        p.show(relativeTo: sender.bounds, of: sender, preferredEdge: .maxY)
+        log("System Ready. Version 1.1")
     }
 
     func refreshProcs() {
@@ -187,24 +153,44 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
     @objc func execute() {
         let mode = modeSegment.selectedSegment
         let reopen = reopenCheck.state == .on
-        let sStats = simNoStats, sNotch = simNoNotch
+        
+        log("Executing mode: \(mode)...")
         
         DispatchQueue.global(qos: .userInitiated).async {
-            for p in self.allProcesses where p.isSelected { shell("kill -9 \(p.pid)") }
-            if mode == 0 || mode == 2 { shell("killall Dock Finder SystemUIServer") }
-            if mode == 1 || mode == 2 { shell("killall -u $(whoami) -m '.'") }
-            if reopen {
-                if !sStats { shell("open \(self.essentials[0])") }
-                if !sNotch { shell("open \(self.essentials[1])") }
+            // Kill checked items
+            for p in self.allProcesses where p.isSelected { 
+                self.log("Killing \(p.name)...")
+                shell("kill -9 \(p.pid)") 
             }
-            DispatchQueue.main.async { self.win?.close(); NSApp.terminate(nil) }
+            
+            if mode == 0 || mode == 2 { 
+                self.log("Restarting UI Shell...")
+                shell("killall Dock Finder SystemUIServer") 
+            }
+            if mode == 1 || mode == 2 { 
+                self.log("Nuking all user services...")
+                shell("killall -u $(whoami) -m '.'") 
+            }
+            
+            if reopen {
+                for appPath in self.essentials {
+                    if FileManager.default.fileExists(atPath: appPath) {
+                        self.log("Relaunching \(URL(fileURLWithPath: appPath).lastPathComponent)...")
+                        shell("open \(appPath)")
+                    }
+                }
+            }
+            self.log("Done!")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.win?.close(); NSApp.terminate(nil)
+            }
         }
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int { return filteredProcesses.count }
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let item = filteredProcesses[row]
-        let btn = NSButton(checkboxWithTitle: "\(item.name) (\(item.pid))", target: self, action: #selector(rowChecked))
+        let btn = NSButton(checkboxWithTitle: "\(item.name) (PID: \(item.pid))", target: self, action: #selector(rowChecked))
         btn.tag = row; btn.state = item.isSelected ? .on : .off
         btn.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         return btn
@@ -218,7 +204,6 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
         }
     }
 
-    @objc func modeChanged() {}
     func run() {
         app.setActivationPolicy(.regular); setupUI()
         win?.makeKeyAndOrderFront(nil); app.activate(ignoringOtherApps: true); app.run()
@@ -233,5 +218,4 @@ func shell(_ args: String) {
 ProController().run()
 SWIFT_EOF
 
-# Finally, execute the generated file
 swift "$SWIFT_FILE"
