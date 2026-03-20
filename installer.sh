@@ -7,7 +7,8 @@ cat > "$SWIFT_FILE" << 'SWIFT_EOF'
 import Cocoa
 import Foundation
 
-let LOCAL_VER = "1.6.1" 
+// Keep the version string exactly as requested
+let LOCAL_VER = "1.6.3" 
 
 struct ProcessItem {
     let pid: String
@@ -23,6 +24,7 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
     var filteredProcesses: [ProcessItem] = []
     let essentials = ["/Applications/Stats.app", "/Applications/boringNotch.app"]
 
+    // Premium UI Elements
     let tabView = NSTabView()
     let tableView = NSTableView()
     let searchField = NSSearchField()
@@ -32,21 +34,25 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
 
     func log(_ text: String) {
         DispatchQueue.main.async {
-            self.console.string += "> \(text)\n"
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm:ss"
+            let time = formatter.string(from: Date())
+            self.console.string += "[\(time)] \(text)\n"
             self.console.scrollToEndOfDocument(nil)
         }
     }
 
+    // Terminate Shortcut on Window Close
     func windowWillClose(_ notification: Notification) {
         NSApp.terminate(nil)
     }
 
     func setupUI() {
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 620),
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 680),
                          styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
                          backing: .buffered, defer: false)
         w.center()
-        w.title = "Soft Restart Pro"
+        w.title = ""
         w.titlebarAppearsTransparent = true
         w.isMovableByWindowBackground = true
         w.delegate = self
@@ -54,99 +60,132 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
         let visualEffect = NSVisualEffectView(frame: w.contentView!.bounds)
         visualEffect.blendingMode = .behindWindow
         visualEffect.state = .active
-        visualEffect.material = .sidebar
+        visualEffect.material = .sidebar // Premium frosted glass effect
         visualEffect.autoresizingMask = [.width, .height]
         w.contentView?.addSubview(visualEffect)
 
         let mainStack = NSStackView()
         mainStack.translatesAutoresizingMaskIntoConstraints = false
         mainStack.orientation = .vertical
-        mainStack.spacing = 20
-        mainStack.edgeInsets = NSEdgeInsets(top: 60, left: 25, bottom: 25, right: 25)
-        
-        // CRITICAL FIX: Add the stack to the view BEFORE defining constraints
+        mainStack.spacing = 24
+        mainStack.edgeInsets = NSEdgeInsets(top: 50, left: 30, bottom: 30, right: 30)
         visualEffect.addSubview(mainStack)
 
-        let titleLbl = NSTextField(labelWithString: "Soft Restart V2")
-        titleLbl.font = .systemFont(ofSize: 18, weight: .bold)
-        titleLbl.alignment = .center
-        mainStack.addArrangedSubview(titleLbl)
-
-        modeSegment.selectedSegment = 0
-        reopenCheck.state = .on
-        let modeStack = NSStackView(views: [modeSegment, reopenCheck])
-        modeStack.orientation = .vertical
-        modeStack.spacing = 10
-        mainStack.addArrangedSubview(modeStack)
-
-        tabView.heightAnchor.constraint(equalToConstant: 240).isActive = true
-        let advTab = NSTabViewItem(identifier: "adv")
-        advTab.label = "Process Picker"
-        let advView = NSView()
+        // Header Section
+        let titleStack = NSStackView()
+        let titleLbl = NSTextField(labelWithString: "Soft Restart Pro")
+        titleLbl.font = .systemFont(ofSize: 22, weight: .bold)
+        titleLbl.textColor = .labelColor
         
-        let advStack = NSStackView()
-        advStack.translatesAutoresizingMaskIntoConstraints = false
-        advStack.orientation = .vertical
-        advStack.spacing = 8
-        advView.addSubview(advStack)
+        let subtitleLbl = NSTextField(labelWithString: "System Optimization Suite")
+        subtitleLbl.font = .systemFont(ofSize: 12, weight: .medium)
+        subtitleLbl.textColor = .secondaryLabelColor
+        
+        titleStack.orientation = .vertical
+        titleStack.spacing = 2
+        titleStack.addArrangedSubview(titleLbl)
+        titleStack.addArrangedSubview(subtitleLbl)
+        mainStack.addArrangedSubview(titleStack)
 
-        searchField.placeholderString = "Search apps..."
+        // Feature Organization: Tabs
+        tabView.tabViewType = .topTabsBezelBorder
+        tabView.controlSize = .regular
+        
+        // Tab 1: Quick Actions
+        let quickTab = NSTabViewItem(identifier: "quick")
+        quickTab.label = "Quick Actions"
+        let quickView = NSStackView()
+        quickView.orientation = .vertical
+        quickView.spacing = 15
+        quickView.edgeInsets = NSEdgeInsets(top: 20, left: 10, bottom: 20, right: 10)
+        
+        modeSegment.controlSize = .large
+        reopenCheck.font = .systemFont(ofSize: 13)
+        
+        quickView.addArrangedSubview(NSTextField(labelWithString: "Restart Mode"))
+        quickView.addArrangedSubview(modeSegment)
+        quickView.addArrangedSubview(reopenCheck)
+        quickTab.view = quickView
+        
+        // Tab 2: Process Picker
+        let procTab = NSTabViewItem(identifier: "proc")
+        procTab.label = "Process Picker"
+        let procContainer = NSView()
+        let procStack = NSStackView()
+        procStack.translatesAutoresizingMaskIntoConstraints = false
+        procStack.orientation = .vertical
+        procStack.spacing = 10
+        procContainer.addSubview(procStack)
+        
+        searchField.placeholderString = "Filter running applications..."
         searchField.delegate = self
-        advStack.addArrangedSubview(searchField)
+        procStack.addArrangedSubview(searchField)
 
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
+        scroll.borderType = .lineBorder
         tableView.headerView = nil
         tableView.backgroundColor = .clear
         let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("proc"))
-        col.width = 360
+        col.width = 380
         tableView.addTableColumn(col)
         tableView.dataSource = self; tableView.delegate = self
         scroll.documentView = tableView
-        advStack.addArrangedSubview(scroll)
+        procStack.addArrangedSubview(scroll)
         
-        advTab.view = advView
-        tabView.addTabViewItem(advTab)
+        NSLayoutConstraint.activate([
+            procStack.leadingAnchor.constraint(equalTo: procContainer.leadingAnchor, constant: 10),
+            procStack.trailingAnchor.constraint(equalTo: procContainer.trailingAnchor, constant: -10),
+            procStack.topAnchor.constraint(equalTo: procContainer.topAnchor, constant: 10),
+            procStack.bottomAnchor.constraint(equalTo: procContainer.bottomAnchor, constant: -10)
+        ])
+        
+        procTab.view = procContainer
+        
+        tabView.addTabViewItem(quickTab)
+        tabView.addTabViewItem(procTab)
         mainStack.addArrangedSubview(tabView)
 
+        // Console Log (Terminal Style)
         let consoleScroll = NSScrollView()
-        consoleScroll.heightAnchor.constraint(equalToConstant: 100).isActive = true
+        consoleScroll.heightAnchor.constraint(equalToConstant: 120).isActive = true
         console.isEditable = false
-        console.backgroundColor = NSColor.black.withAlphaComponent(0.4)
+        console.backgroundColor = NSColor.black.withAlphaComponent(0.2)
         console.textColor = .systemGreen
-        console.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
+        console.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         consoleScroll.documentView = console
+        consoleScroll.borderType = .noBorder
         mainStack.addArrangedSubview(consoleScroll)
 
+        // Footer Action
         let footer = NSStackView()
         footer.orientation = .horizontal
-        let vLbl = NSTextField(labelWithString: "v\(LOCAL_VER)")
-        vLbl.font = .systemFont(ofSize: 10)
-        vLbl.textColor = .secondaryLabelColor
+        footer.distribution = .equalSpacing
         
-        let execBtn = NSButton(title: "RUN SYSTEM RESTART", target: self, action: #selector(execute))
+        let vLbl = NSTextField(labelWithString: "VERSION \(LOCAL_VER)")
+        vLbl.font = .monospacedSystemFont(ofSize: 10, weight: .bold)
+        vLbl.textColor = .tertiaryLabelColor
+        
+        let execBtn = NSButton(title: "INITIALIZE RESTART", target: self, action: #selector(execute))
         execBtn.bezelStyle = .rounded
-        execBtn.contentTintColor = .systemBlue
+        execBtn.isHighlighted = true
+        execBtn.keyEquivalent = "\r" // Enter key triggers it
         
-        footer.addView(vLbl, in: .leading)
-        footer.addView(execBtn, in: .trailing)
+        footer.addArrangedSubview(vLbl)
+        footer.addArrangedSubview(execBtn)
         mainStack.addArrangedSubview(footer)
 
         NSLayoutConstraint.activate([
-            mainStack.leadingAnchor.constraint(equalTo: visualEffect.leadingAnchor),
-            mainStack.trailingAnchor.constraint(equalTo: visualEffect.trailingAnchor),
+            mainStack.leadingAnchor.constraint(equalTo: visualEffect.leadingAnchor, constant: 30),
+            mainStack.trailingAnchor.constraint(equalTo: visualEffect.trailingAnchor, constant: -30),
             mainStack.topAnchor.constraint(equalTo: visualEffect.topAnchor),
-            mainStack.bottomAnchor.constraint(equalTo: visualEffect.bottomAnchor),
-            advStack.leadingAnchor.constraint(equalTo: advView.leadingAnchor),
-            advStack.trailingAnchor.constraint(equalTo: advView.trailingAnchor),
-            advStack.topAnchor.constraint(equalTo: advView.topAnchor),
-            advStack.bottomAnchor.constraint(equalTo: advView.bottomAnchor)
+            mainStack.bottomAnchor.constraint(equalTo: visualEffect.bottomAnchor, constant: -30)
         ])
 
         self.win = w
         refreshProcs()
-        log("System Ready. v\(LOCAL_VER)")
+        log("Soft Restart Engine v\(LOCAL_VER) Initialized.")
     }
 
     func refreshProcs() {
@@ -174,30 +213,49 @@ class ProController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableV
     @objc func execute() {
         let mode = modeSegment.selectedSegment
         let reopen = reopenCheck.state == .on
-        log("Executing mode: \(mode)...")
+        log("Commencing System Cleanup...")
+        
         DispatchQueue.global(qos: .userInitiated).async {
+            // Kill selected processes
             for p in self.allProcesses where p.isSelected { 
-                self.log("Killing \(p.name)...")
+                self.log("Terminating process: \(p.name)")
                 shell("kill -9 \(p.pid)") 
             }
-            if mode == 0 || mode == 2 { shell("killall Dock Finder SystemUIServer") }
-            if mode == 1 || mode == 2 { shell("killall -u $(whoami) -m '.'") }
+            
+            if mode == 0 || mode == 2 { 
+                self.log("Refreshing UI Services...")
+                shell("killall Dock Finder SystemUIServer") 
+            }
+            
+            if mode == 1 || mode == 2 { 
+                self.log("Clearing User Services...")
+                shell("killall -u $(whoami) -m '.'") 
+            }
+            
             if reopen {
                 for appPath in self.essentials {
-                    if FileManager.default.fileExists(atPath: appPath) { shell("open \(appPath)") }
+                    if FileManager.default.fileExists(atPath: appPath) { 
+                        self.log("Reopening Essential: \(appPath)")
+                        shell("open \(appPath)") 
+                    }
                 }
             }
-            self.log("Done!")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { self.win?.close(); NSApp.terminate(nil) }
+            
+            self.log("System Restart Complete.")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                self.win?.close()
+                NSApp.terminate(nil)
+            }
         }
     }
 
+    // TableView Logic
     func numberOfRows(in tableView: NSTableView) -> Int { return filteredProcesses.count }
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let item = filteredProcesses[row]
-        let btn = NSButton(checkboxWithTitle: "\(item.name) (PID: \(item.pid))", target: self, action: #selector(rowChecked))
+        let btn = NSButton(checkboxWithTitle: "\(item.name) (\(item.pid))", target: self, action: #selector(rowChecked))
         btn.tag = row; btn.state = item.isSelected ? .on : .off
-        btn.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        btn.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
         return btn
     }
 
