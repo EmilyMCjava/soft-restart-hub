@@ -7,7 +7,7 @@ cat > "$SWIFT_FILE" << 'SWIFT_EOF'
 import Cocoa
 import Foundation
 
-let LOCAL_VER = "2.0"
+let LOCAL_VER = "2.1"
 
 // ── Shell ─────────────────────────────────────────────────────
 @discardableResult
@@ -352,7 +352,6 @@ class Controller: NSObject, NSWindowDelegate {
         }
 
         bar.addSubview(logoBg); bar.addSubview(title); bar.addSubview(ver)
-        tabViews.forEach{bar.addSubview($0)}
 
         let s=Ln(); root.addSubview(s)
 
@@ -377,22 +376,21 @@ class Controller: NSObject, NSWindowDelegate {
             s.heightAnchor.constraint(equalToConstant:1),
         ])
 
-        // Space tabs evenly in the right portion of the bar
-        let tabW:CGFloat = 90
-        var prevTab:NSView?=nil
-        for (i,tb) in tabViews.enumerated() {
+        // Place tabs flush to the right of the bar
+        let tabStack = NSStackView(views: tabViews)
+        tabStack.orientation = .horizontal
+        tabStack.spacing = 4
+        tabStack.translatesAutoresizingMaskIntoConstraints = false
+        bar.addSubview(tabStack)
+        NSLayoutConstraint.activate([
+            tabStack.trailingAnchor.constraint(equalTo: bar.trailingAnchor, constant: -16),
+            tabStack.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
+        ])
+        for tb in tabViews {
             NSLayoutConstraint.activate([
-                tb.centerYAnchor.constraint(equalTo:bar.centerYAnchor),
-                tb.heightAnchor.constraint(equalToConstant:32),
-                tb.widthAnchor.constraint(equalToConstant:tabW),
+                tb.heightAnchor.constraint(equalToConstant: 32),
+                tb.widthAnchor.constraint(equalToConstant: 88),
             ])
-            if let prev=prevTab {
-                tb.leadingAnchor.constraint(equalTo:prev.trailingAnchor,constant:4).isActive=true
-            } else {
-                tb.trailingAnchor.constraint(equalTo:bar.trailingAnchor,constant:-CGFloat(tabs.count-1-0)*CGFloat(tabW+4)-20).isActive=true
-            }
-            prevTab=tb
-            _ = i
         }
     }
 
