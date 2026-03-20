@@ -566,7 +566,7 @@ class Controller: NSObject, NSWindowDelegate {
             modeL.topAnchor.constraint(equalTo:statsRow.bottomAnchor,constant:24),
             modeL.leadingAnchor.constraint(equalTo:inner.leadingAnchor,constant:20),
 
-            optL.topAnchor.constraint(equalTo:lastMC!.bottomAnchor,constant:24),
+            optL.topAnchor.constraint(equalTo:lastMC?.bottomAnchor ?? modeL.bottomAnchor,constant:24),
             optL.leadingAnchor.constraint(equalTo:inner.leadingAnchor,constant:20),
 
             reopenTog.leadingAnchor.constraint(equalTo:optBox.leadingAnchor,constant:16),
@@ -914,7 +914,7 @@ class Controller: NSObject, NSWindowDelegate {
         inner.addSubview(runAdvBtn)
         let pad=NSView(); pad.translatesAutoresizingMaskIntoConstraints=false; inner.addSubview(pad)
         NSLayoutConstraint.activate([
-            runAdvBtn.topAnchor.constraint(equalTo:lastSec!.bottomAnchor,constant:20),
+            runAdvBtn.topAnchor.constraint(equalTo:lastSec?.bottomAnchor ?? inner.topAnchor,constant:20),
             runAdvBtn.trailingAnchor.constraint(equalTo:inner.trailingAnchor,constant:-20),
             runAdvBtn.widthAnchor.constraint(equalToConstant:220),
             runAdvBtn.heightAnchor.constraint(equalToConstant:34),
